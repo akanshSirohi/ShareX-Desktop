@@ -3,8 +3,6 @@ import path from "node:path";
 import { fileURLToPath } from "node:url";
 import JSZip from "jszip";
 
-const webRoot = fileURLToPath(new URL("../", import.meta.url));
-
 export async function copyAssets({ outputDir, assetsDir, assetFolder }) {
   if (!/^sharex_web_v\d+(?:_\d+)*$/.test(assetFolder)) throw new Error("Invalid assetFolder");
   outputDir = path.resolve(outputDir);
@@ -42,7 +40,5 @@ export async function copyAssets({ outputDir, assetsDir, assetFolder }) {
 }
 
 if (process.argv[1] && path.resolve(process.argv[1]) === fileURLToPath(import.meta.url)) {
-  const { assetFolder } = JSON.parse(await readFile(path.join(webRoot, "web-ui.json"), "utf8"));
-  const target = await copyAssets({ outputDir: path.join(webRoot, "out"), assetsDir: path.join(webRoot, "../app/src/main/assets"), assetFolder });
-  console.log(`Static export packaged to ${target}`);
+  await import("../../scripts/sync-portal.mjs");
 }
