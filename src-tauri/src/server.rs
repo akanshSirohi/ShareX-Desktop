@@ -772,10 +772,20 @@ async fn static_portal(
     Ok(response.map(Body::new))
 }
 pub async fn start(state: AppState) -> Result<(), String> {
+    start_with_drive_scanner(state, scan_drives).await
+}
+
+pub(crate) async fn start_with_drive_scanner<F>(
+    state: AppState,
+    scan_drives: F,
+) -> Result<(), String>
+where
+    F: Fn() -> Result<Vec<Drive>, String> + Clone + Send + 'static,
+{
     if state.inner.lock().unwrap().running {
         return Ok(());
     }
-    let drives = tokio::task::spawn_blocking(scan_drives)
+    let drives = tokio::task::spawn_blocking(scan_drives.clone())
         .await
         .map_err(|e| e.to_string())??;
     let settings = state.inner.lock().unwrap().saved.settings.clone();
@@ -891,7 +901,7 @@ pub async fn start(state: AppState) -> Result<(), String> {
             if ended {
                 break;
             }
-            let scan = tokio::task::spawn_blocking(scan_drives).await;
+            let scan = tokio::task::spawn_blocking(scan_drives.clone()).await;
             let ended = {
                 let r = state.inner.lock().unwrap();
                 !r.running || r.started != generation
