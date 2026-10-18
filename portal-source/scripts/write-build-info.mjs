@@ -2,6 +2,26 @@ import { cp, copyFile, readFile, mkdir, writeFile } from "node:fs/promises";
 import { createRequire } from "node:module";
 import path from "node:path";
 
+// Ship project notices and dependency licenses with every static portal export.
+const licenseDirectory = new URL("../public/licenses/", import.meta.url);
+await mkdir(licenseDirectory, { recursive: true });
+for (const file of ["LICENSE", "NOTICE.md", "THIRD_PARTY_NOTICES.md"]) {
+  await copyFile(new URL(`../../${file}`, import.meta.url), new URL(file, licenseDirectory));
+}
+const require = createRequire(import.meta.url);
+for (const [packageName, files] of [
+  ["movi-player", ["LICENSE"]],
+  ["pdfjs-dist", ["LICENSE"]],
+  ["omni-doc-viewer", ["LICENSE", "NOTICE"]],
+]) {
+  const packageRoot = packageName === "movi-player"
+    ? path.resolve(path.dirname(require.resolve("movi-player/movi.wasm")), "..")
+    : path.dirname(require.resolve(`${packageName}/package.json`));
+  for (const file of files) {
+    await copyFile(path.join(packageRoot, file), new URL(`${packageName}-${file}`, licenseDirectory));
+  }
+}
+
 const { assetFolder } = JSON.parse(await readFile(new URL("../web-ui.json", import.meta.url), "utf8"));
 if (!/^sharex_web_v\d+(?:_\d+)*$/.test(assetFolder)) throw new Error("Invalid assetFolder");
 await mkdir(new URL("../public/", import.meta.url), { recursive: true });

@@ -37,6 +37,10 @@ Build scripts copy browser player resources, PDF workers, fonts, and decoders in
 
 Run `npm test` in this directory. The exported `copyAssets` helper retains tests for upstream deterministic ZIP packaging; its command-line entry point synchronizes the desktop export.
 
+## License
+
+The ShareX portal and its desktop adaptations are licensed under [AGPL-3.0-or-later](../LICENSE). Preserve the original ShareX attribution in [NOTICE.md](../NOTICE.md). The prebuild script includes project notices and bundled player/viewer licenses in `public/licenses/`, which is carried into the static export. See [third-party notices](../THIRD_PARTY_NOTICES.md) for component-specific terms.
+
 ## Theme attribution
 
 Zen Inspired uses [Bikash's theme](https://tweakcn.com/themes/cmlm03etv000204lh15608kec). Additional presets use [2077](https://tweakcn.com/themes/cmlecx2br000004if3m471xxd), [hex](https://tweakcn.com/themes/cmninq0c3000604l25wvb3xgh), [Purple Rain](https://tweakcn.com/themes/cmlh0vbnd000004l112kx8a0l), [Light Green](https://tweakcn.com/themes/cmlhfpjhw000004l4f4ax3m7z), and [Claude +](https://tweakcn.com/themes/cmdght103000n04lh3e2ae93r). The default uses shadcn neutral tokens. Theme tokens ship locally.
