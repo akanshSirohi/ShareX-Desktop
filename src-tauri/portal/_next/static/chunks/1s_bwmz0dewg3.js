@@ -1,0 +1,1 @@
+(globalThis.TURBOPACK||(globalThis.TURBOPACK=[])).push(["object"==typeof document?document.currentScript:void 0,9734,e=>{"use strict";e.s(["createCanvas",0,function(){throw Error("Document previews require a browser canvas.")}])}]);

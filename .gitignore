@@ -1,0 +1,13 @@
+node_modules/
+portal-source/.next/
+portal-source/out/
+dist/
+src-tauri/target/
+test-results/
+playwright-report/
+*.log
+.DS_Store
+.playwright-cli/
+output/
+src-tauri/portal-staging-*/
+src-tauri/portal-backup-*/

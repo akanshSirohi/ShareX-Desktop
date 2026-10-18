@@ -1,0 +1,36 @@
+{
+  "$schema": "https://schema.tauri.app/config/2",
+  "productName": "ShareX Desktop",
+  "version": "0.1.1",
+  "identifier": "com.sharex.desktop",
+  "build": {
+    "beforeDevCommand": "npm run dev",
+    "devUrl": "http://127.0.0.1:1420",
+    "beforeBuildCommand": "npm run build",
+    "frontendDist": "../dist"
+  },
+  "app": {
+    "windows": [
+      {
+        "title": "ShareX Desktop",
+        "width": 1400,
+        "height": 900,
+        "minWidth": 900,
+        "minHeight": 650,
+        "backgroundColor": "#101014"
+      }
+    ],
+    "security": {
+      "csp": "default-src 'self'; img-src 'self' asset: http://asset.localhost data: blob:; style-src 'self' 'unsafe-inline'; connect-src ipc: http://ipc.localhost; script-src 'self'"
+    }
+  },
+  "bundle": {
+    "active": true,
+    "targets": ["nsis"],
+    "resources": ["portal/**/*"],
+    "icon": ["icons/icon.png", "icons/icon.ico"],
+    "shortDescription": "Local network file sharing",
+    "copyright": "ShareX contributors; Android portal © Akansh Sirohi",
+    "windows": { "nsis": { "displayLanguageSelector": false } }
+  }
+}
