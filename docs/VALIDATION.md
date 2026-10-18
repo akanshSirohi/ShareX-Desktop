@@ -49,6 +49,14 @@ The packaged Tauri executable was launched and inspected through its WebView2 de
 
 Playwright checked dark and light desktop layouts and a 375px layout with no horizontal overflow. Native rendering, storage selection, keyboard focus, preview dialogs, browser approval, and reduced-motion CSS were inspected. Screenshots are in ignored `output/playwright/`.
 
+### Sidebar and scrollbar update (v0.1.3)
+
+Current frontend styles were checked in an isolated native WebView2 session at 960px, 788px, 720px, and 650px heights. The privacy note, Settings, and profile fit within the viewport; the profile ends at 638px at the 650px minimum. Sidebar scrolling remains available at smaller heights. Screenshot capture dimensions now match the visible native window instead of a taller emulated viewport.
+
+Dark and light scrollbar rendering was inspected, including the 9px width, rounded thumb, transparent track, and removed arrow buttons. The light Stop sharing button also retains readable text. The production frontend and v0.1.3 Windows installer built successfully with these changes.
+
+Ten 2880 × 1574 native app captures use sample files and a separate showcase profile. Transfer history comes from three real local downloads and two uploads. The screenshots, WebP exports, framed hero images, and local gallery are in ignored `output/playwright/showcase/`. Source styles were applied to the native showcase view before capture. No production sample-data mode was added.
+
 ## Remaining hardware/distribution checks
 
 - An actual encrypted BitLocker drive was not available. Policy tests simulate protected and unknown volumes; the machine's C: and D: drives report unencrypted.
