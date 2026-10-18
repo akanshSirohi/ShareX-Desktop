@@ -1,6 +1,8 @@
 # Automatic releases
 
-[Tauri's official action](https://github.com/tauri-apps/tauri-action) builds Windows x64, macOS Apple Silicon, macOS Intel, and Linux x64 packages. The [Release workflow](../.github/workflows/release.yml) runs after a push or PR merge to `master`. Its first successful run publishes `v0.1.3`. Opening a PR or pushing a feature branch does not publish a release.
+[Tauri's official action](https://github.com/tauri-apps/tauri-action) builds Windows x64, macOS Apple Silicon, macOS Intel, and Linux x64 packages. The [Release workflow](../.github/workflows/release.yml) runs after a push or PR merge to `master`, except when every changed file is Markdown (`**/*.md`), under `docs/`, or the root `LICENSE`. Its first successful run publishes `v0.1.3`. Opening a PR or pushing a feature branch does not publish a release.
+
+For README, documentation, or root license updates, commit and push normally without changing the application version. Documentation-only pushes skip the Release workflow; regular CI checks still run. Pushes that also change code or workflow files still trigger the release check. **Run workflow** on `master` remains available for manual releases, including commits containing only documentation.
 
 ## Publication
 

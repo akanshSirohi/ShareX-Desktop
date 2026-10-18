@@ -2,6 +2,9 @@
 
 ShareX was created by Akansh Sirohi and contributors.
 
+Copyright © 2022 Akansh Sirohi (original ShareX project).
+Copyright © 2026 ShareX Desktop contributors (desktop modifications).
+
 Original Android project: <https://github.com/akanshSirohi/ShareX>
 
 ShareX Desktop adapts the Android project's browser portal and original ShareX branding. Desktop modifications introduced in 2026 include the Tauri host, React desktop interface, Rust server integration, Windows storage selection, and native packaging.

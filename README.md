@@ -81,4 +81,30 @@ ShareX was created by **Akansh Sirohi and contributors**. This edition adds the 
 
 ## License
 
-**AGPL-3.0-or-later.** See [LICENSE](LICENSE). This project is separate from the unrelated Windows screenshot utility also named ShareX.
+**ShareX Desktop is free software licensed under the GNU Affero General Public License, version 3 or later (AGPL-3.0-or-later).**
+
+```text
+Copyright © 2022 Akansh Sirohi (original ShareX project)
+Copyright © 2026 ShareX Desktop contributors (desktop modifications)
+
+This program is free software: you can redistribute it and/or modify
+it under the terms of the GNU Affero General Public License as published
+by the Free Software Foundation, either version 3 of the License, or
+(at your option) any later version.
+
+This program is distributed in the hope that it will be useful,
+but WITHOUT ANY WARRANTY; without even the implied warranty of
+MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
+GNU Affero General Public License for more details.
+```
+
+When redistributing ShareX Desktop or a modified version:
+
+- Keep the covered software under the AGPL and preserve its copyright, license, attribution, and warranty notices. Include a copy of the license.
+- Provide recipients with the complete corresponding source for the version you distribute, including your modifications and the scripts needed to build and install it, as required by the license.
+- Clearly identify modified files and the dates of your changes.
+- If you modify the software and let users interact with it over a network, prominently offer those users the corresponding source at no charge, as required by AGPL section 13.
+
+**You may not redistribute covered code as a closed-source proprietary application.** Commercial use and charging for copies are allowed when you comply with the AGPL; publishing through an app store does not remove these obligations. Private use alone does not require publishing your changes.
+
+Read the full [GNU Affero General Public License](LICENSE) for the governing terms. See [NOTICE](NOTICE.md) for original-project attribution and [third-party notices](THIRD_PARTY_NOTICES.md) for components with their own licenses. This project is separate from the unrelated Windows screenshot utility also named ShareX.
