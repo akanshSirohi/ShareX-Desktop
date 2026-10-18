@@ -1,0 +1,189 @@
+<!doctype html>
+<html lang="en">
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>ShareX · Access approval</title>
+  <style>
+    :root {
+      color-scheme: dark;
+      font:
+        15px/1.6 "Segoe UI",
+        system-ui,
+        sans-serif;
+      background: #101014;
+      color: #eeeef4;
+    }
+    * {
+      box-sizing: border-box;
+    }
+    body {
+      min-height: 100svh;
+      margin: 0;
+      display: grid;
+      place-items: center;
+      padding: 24px;
+    }
+    main {
+      width: min(100%, 480px);
+    }
+    .brand {
+      color: #b9a7fc;
+      font-size: 18px;
+      font-weight: 650;
+      margin-bottom: 40px;
+    }
+    h1 {
+      font-size: 28px;
+      line-height: 1.25;
+      letter-spacing: -0.7px;
+    }
+    p {
+      color: #a8a6b2;
+    }
+    .package {
+      font: 12px/1.6 monospace;
+      overflow-wrap: anywhere;
+      padding: 14px 0;
+      border-block: 1px solid #303038;
+    }
+    label {
+      display: block;
+      margin-bottom: 8px;
+    }
+    input,
+    button {
+      min-height: 44px;
+      border-radius: 8px;
+      font: inherit;
+    }
+    input {
+      width: 100%;
+      background: #19191e;
+      border: 1px solid #41414c;
+      color: inherit;
+      padding: 10px 12px;
+    }
+    button {
+      border: 0;
+      background: #b9a7fc;
+      color: #171321;
+      padding: 10px 18px;
+      margin-top: 14px;
+      cursor: pointer;
+    }
+    button:hover {
+      background: #c9bbff;
+    }
+    :focus-visible {
+      outline: 2px solid #d6cbff;
+      outline-offset: 3px;
+    }
+    #error {
+      color: #f3a5ac;
+    }
+    a {
+      color: #c4b5fd;
+    }
+    [hidden] {
+      display: none !important;
+    }
+  </style>
+  <main>
+    <div class="brand">ShareX</div>
+    <h1 id="heading">Waiting for browser approval</h1>
+    <p id="status" role="status" aria-live="polite">
+      Open ShareX Desktop on the sharing PC. Approve this browser in the popup
+      or on the Devices page.
+    </p>
+    <p class="package" id="package"></p>
+    <form id="password-form" hidden>
+      <label for="password">Sharing password</label>
+      <input
+        id="password"
+        type="password"
+        autocomplete="current-password"
+        required
+        maxlength="128"
+      />
+      <button type="submit">Continue</button>
+    </form>
+    <p id="error" role="alert"></p>
+    <p><a href="/">Open file workspace</a></p>
+  </main>
+  <script>
+    const packageName = __SHAREX_PACKAGE__;
+    const heading = document.getElementById("heading");
+    const status = document.getElementById("status");
+    const form = document.getElementById("password-form");
+    const error = document.getElementById("error");
+    document.getElementById("package").textContent = packageName;
+    let checking = false;
+    let denied = false;
+    async function check() {
+      if (checking || denied) return;
+      checking = true;
+      try {
+        const response = await fetch("/ShareX?action=auth", {
+          cache: "no-store",
+        });
+        if (!response.ok)
+          throw new Error(
+            "Cannot check access. Keep ShareX Desktop sharing and try again.",
+          );
+        const access = await response.text();
+        form.hidden = access !== "password";
+        if (access === "denied") {
+          denied = true;
+          heading.textContent = "Browser access denied";
+          status.textContent =
+            "Access was revoked on the sharing PC. Open the file workspace to check your access.";
+        } else if (access === "password") {
+          heading.textContent = "Enter the sharing password";
+          status.textContent =
+            "Use the password set in ShareX Desktop on the sharing PC.";
+        } else if (access === "true") {
+          const permission = await fetch(
+            "/ShareX?action=pluginPermission&package=" +
+              encodeURIComponent(packageName),
+            { cache: "no-store" },
+          );
+          if (!permission.ok)
+            throw new Error(
+              "Plugin access is unavailable. Check the plugin in ShareX Desktop.",
+            );
+          if ((await permission.text()) === "true") {
+            location.reload();
+            return;
+          }
+          heading.textContent = "Waiting for plugin approval";
+          status.textContent =
+            "Browser approved. Approve this plugin in ShareX Desktop’s popup or on the Devices page. This page opens automatically after approval.";
+        }
+      } catch (failure) {
+        error.textContent = failure.message;
+      } finally {
+        checking = false;
+      }
+    }
+    form.addEventListener("submit", async (event) => {
+      event.preventDefault();
+      error.textContent = "";
+      try {
+        const response = await fetch("/ShareX/password", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            password: document.getElementById("password").value,
+          }),
+        });
+        if (!response.ok) throw new Error(await response.text());
+        document.getElementById("password").value = "";
+        await check();
+      } catch (failure) {
+        error.textContent = failure.message;
+      }
+    });
+    check();
+    setInterval(check, 1500);
+  </script>
+</html>

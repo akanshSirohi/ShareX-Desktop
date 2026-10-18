@@ -1,6 +1,6 @@
 [package]
 name = "sharex-desktop"
-version = "0.1.1"
+version = "0.1.2"
 description = "ShareX local network file sharing for desktop"
 authors = ["ShareX contributors"]
 license = "AGPL-3.0-or-later"

@@ -16,7 +16,7 @@ use axum::{
 };
 use futures_util::{SinkExt, StreamExt};
 use serde_json::{json, Value};
-use std::{collections::HashMap, fs, io::Read, path::Path, time::Duration};
+use std::{collections::HashMap, fs, io::Read, net::SocketAddr, path::Path, time::Duration};
 use tower::ServiceExt;
 type Params = HashMap<String, String>;
 fn id(headers: &HeaderMap) -> String {
@@ -52,18 +52,29 @@ pub fn permission(state: &AppState, headers: &HeaderMap, p: &Params) -> ApiResul
         .iter_mut()
         .find(|d| d.id == id(headers))
         .ok_or(bad("Unknown browser"))?;
+    let mut changed = false;
     let answer = if d.plugins.contains(package) {
         "true"
     } else {
         let pending = format!("pending:{package}");
         if !d.plugins.contains(&pending) {
-            d.plugins.push(pending)
+            d.plugins.push(pending);
+            changed = true;
         }
         "waiting"
     };
+    drop(r);
+    if changed {
+        state.persist().map_err(bad)?;
+    }
     Ok(answer.into_response())
 }
-pub async fn serve_plugin(state: AppState, headers: HeaderMap, request: Request) -> ApiResult {
+pub async fn serve_plugin(
+    state: AppState,
+    headers: HeaderMap,
+    request: Request,
+    addr: SocketAddr,
+) -> ApiResult {
     let path = request.uri().path().trim_start_matches("/SharexApp/");
     let mut parts = path.splitn(2, '/');
     let uid = parts.next().unwrap_or("");
@@ -78,6 +89,22 @@ pub async fn serve_plugin(state: AppState, headers: HeaderMap, request: Request)
         .find(|p| p.uid == uid && p.enabled)
         .cloned()
         .ok_or((StatusCode::NOT_FOUND, "Plugin unavailable".into()))?;
+    // A direct plugin link must register the browser just like the main portal.
+    // Keep plugin files inaccessible until both approval stages are complete.
+    let registration = crate::server::auth(&state, &headers, addr).await?;
+    if require_auth(&state, &headers).is_err() {
+        let mut response = approval_page(&plugin.package).into_response();
+        if let Some(cookie) = registration.headers().get(axum::http::header::SET_COOKIE) {
+            response
+                .headers_mut()
+                .insert(axum::http::header::SET_COOKIE, cookie.clone());
+        }
+        response.headers_mut().insert(
+            axum::http::header::CACHE_CONTROL,
+            "no-store".parse().unwrap(),
+        );
+        return Ok(response);
+    }
     let base = state.data.join("plugins").join(uid);
     let target = base.join(if rel.is_empty() { "index.html" } else { rel });
     let target = fs::canonicalize(target).map_err(bad)?;
@@ -98,8 +125,12 @@ pub async fn serve_plugin(state: AppState, headers: HeaderMap, request: Request)
             &headers,
             &HashMap::from([("package".into(), plugin.package.clone())]),
         );
-        let pkg = serde_json::to_string(&plugin.package).unwrap();
-        return Ok(Html(format!("<!doctype html><html><meta name='viewport' content='width=device-width'><body style='background:#141418;color:#eee;font:16px system-ui;padding:10vw'><h1>Approve plugin access</h1><p>Approve this plugin for your browser in ShareX Desktop’s Devices page.</p><script>setInterval(async()=>{{if(await(await fetch('/ShareX?action=pluginPermission&package='+encodeURIComponent({pkg}))).text()==='true')location.reload()}},1500)</script></body></html>")).into_response());
+        let mut response = approval_page(&plugin.package).into_response();
+        response.headers_mut().insert(
+            axum::http::header::CACHE_CONTROL,
+            "no-store".parse().unwrap(),
+        );
+        return Ok(response);
     }
     if target.extension().is_some_and(|x| x == "html") {
         let text = fs::read_to_string(target).map_err(bad)?;
@@ -111,6 +142,12 @@ pub async fn serve_plugin(state: AppState, headers: HeaderMap, request: Request)
         .await
         .map_err(bad)?;
     Ok(response.map(Body::new))
+}
+fn approval_page(package: &str) -> Html<String> {
+    Html(include_str!("plugin-approval.html").replace(
+        "__SHAREX_PACKAGE__",
+        &serde_json::to_string(package).unwrap(),
+    ))
 }
 pub fn install(state: &AppState, path: &Path) -> Result<Plugin, String> {
     let f = fs::File::open(path).map_err(|e| e.to_string())?;

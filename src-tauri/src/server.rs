@@ -136,7 +136,7 @@ fn browser_name(headers: &HeaderMap) -> String {
     };
     format!("{browser} on {os}")
 }
-async fn auth(state: &AppState, headers: &HeaderMap, addr: SocketAddr) -> ApiResult {
+pub(crate) async fn auth(state: &AppState, headers: &HeaderMap, addr: SocketAddr) -> ApiResult {
     if !origin_ok(headers) {
         return Err((StatusCode::FORBIDDEN, "Cross-origin request".into()));
     }
@@ -751,12 +751,12 @@ async fn download_zip(state: AppState, p: Params, request: Request, device: Stri
 }
 async fn static_portal(
     State(state): State<AppState>,
+    ConnectInfo(addr): ConnectInfo<SocketAddr>,
     headers: HeaderMap,
     request: Request,
 ) -> ApiResult {
     if request.uri().path().starts_with("/SharexApp/") {
-        require_auth(&state, &headers)?;
-        return crate::plugins::serve_plugin(state, headers, request).await;
+        return crate::plugins::serve_plugin(state, headers, request, addr).await;
     }
     let path = if request.uri().path() == "/" {
         "/index.html"

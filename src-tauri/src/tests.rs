@@ -18,6 +18,16 @@ fn fixture() -> (tempfile::TempDir, AppState) {
     }
     (dir, state)
 }
+fn free_server_port() -> u16 {
+    // Both the HTTP port and the adjacent plugin socket port must be available.
+    loop {
+        let http = std::net::TcpListener::bind("0.0.0.0:0").unwrap();
+        let port = http.local_addr().unwrap().port();
+        if port < 65535 && std::net::TcpListener::bind(("0.0.0.0", port + 1)).is_ok() {
+            return port;
+        }
+    }
+}
 fn operation(state: &AppState, params: &[(&str, &str)]) -> Result<Value, String> {
     server::operation(
         state,
@@ -254,10 +264,7 @@ async fn real_server_auth_stream_upload_range_and_restrictions() {
     let (_dir, state) = fixture();
     let root = Path::new(&state.inner.lock().unwrap().saved.settings.root_path).to_path_buf();
     fs::write(root.join("hello.txt"), "hello world").unwrap();
-    let port = {
-        let listener = std::net::TcpListener::bind("127.0.0.1:0").unwrap();
-        listener.local_addr().unwrap().port()
-    };
+    let port = free_server_port();
     state.inner.lock().unwrap().saved.settings.port = port;
     server::start(state.clone()).await.unwrap();
     let base = format!("http://127.0.0.1:{port}");
@@ -402,11 +409,7 @@ async fn real_server_auth_stream_upload_range_and_restrictions() {
 #[tokio::test]
 async fn https_password_and_revocation() {
     let (_dir, state) = fixture();
-    let port = std::net::TcpListener::bind("127.0.0.1:0")
-        .unwrap()
-        .local_addr()
-        .unwrap()
-        .port();
+    let port = free_server_port();
     {
         let mut r = state.inner.lock().unwrap();
         r.saved.settings.port = port;
@@ -475,15 +478,167 @@ async fn https_password_and_revocation() {
 }
 
 #[tokio::test]
+async fn direct_plugin_link_registers_browser_and_waits_for_both_approvals() {
+    for password_required in [false, true] {
+        let (_dir, state) = fixture();
+        let port = free_server_port();
+        let plugin_dir = state.data.join("plugins/sharex-test-plugin");
+        fs::create_dir_all(&plugin_dir).unwrap();
+        fs::write(
+            plugin_dir.join("index.html"),
+            "<h1>Private plugin content</h1>",
+        )
+        .unwrap();
+        {
+            let mut r = state.inner.lock().unwrap();
+            r.saved.settings.port = port;
+            if password_required {
+                r.saved.settings.password_salt = token();
+                r.saved.settings.password_hash =
+                    server::password_hash("test-password", &r.saved.settings.password_salt);
+            }
+            r.saved.plugins.push(Plugin {
+                uid: "sharex-test-plugin".into(),
+                package: "sharex.test.plugin".into(),
+                name: "Test".into(),
+                description: String::new(),
+                author: String::new(),
+                version: "1".into(),
+                version_code: 1,
+                enabled: true,
+            });
+        }
+        server::start(state.clone()).await.unwrap();
+        let base = format!("http://127.0.0.1:{port}");
+        let url = format!("{base}/SharexApp/sharex-test-plugin/");
+        let c = reqwest::Client::new();
+        let cross_origin = c
+            .get(&url)
+            .header("Origin", "http://untrusted.example")
+            .send()
+            .await
+            .unwrap();
+        assert_eq!(cross_origin.status(), 403);
+        assert!(state.snapshot()["devices"].as_array().unwrap().is_empty());
+        let first = c.get(&url).send().await.unwrap();
+        assert_eq!(first.status(), 200);
+        assert_eq!(first.headers()["cache-control"], "no-store");
+        let cookie = first.headers()["set-cookie"]
+            .to_str()
+            .unwrap()
+            .split(';')
+            .next()
+            .unwrap()
+            .to_string();
+        let page = first.text().await.unwrap();
+        assert!(page.contains("Waiting for browser approval"));
+        assert!(page.contains("/ShareX/password"));
+        assert!(!page.contains("Private plugin content"));
+        let devices = state.snapshot()["devices"].as_array().unwrap().clone();
+        assert_eq!(devices.len(), 1);
+        assert_eq!(devices[0]["status"], "pending");
+        assert_eq!(devices[0]["ip"], "127.0.0.1");
+        // Reloads and polling must keep one request and one browser identity.
+        c.get(&url).header("cookie", &cookie).send().await.unwrap();
+        assert_eq!(state.snapshot()["devices"].as_array().unwrap().len(), 1);
+        let permission =
+            format!("{base}/ShareX?action=pluginPermission&package=sharex.test.plugin");
+        assert_eq!(
+            c.get(&permission)
+                .header("cookie", &cookie)
+                .send()
+                .await
+                .unwrap()
+                .status(),
+            401
+        );
+        if password_required {
+            assert_eq!(
+                c.get(format!("{base}/ShareX?action=auth"))
+                    .header("cookie", &cookie)
+                    .send()
+                    .await
+                    .unwrap()
+                    .text()
+                    .await
+                    .unwrap(),
+                "password"
+            );
+            assert!(c
+                .post(format!("{base}/ShareX/password"))
+                .header("cookie", &cookie)
+                .json(&serde_json::json!({"password":"test-password"}))
+                .send()
+                .await
+                .unwrap()
+                .status()
+                .is_success());
+        } else {
+            state.inner.lock().unwrap().saved.devices[0].status = "approved".into();
+        }
+        let waiting = c
+            .get(&url)
+            .header("cookie", &cookie)
+            .send()
+            .await
+            .unwrap()
+            .text()
+            .await
+            .unwrap();
+        assert!(!waiting.contains("Private plugin content"));
+        assert_eq!(
+            state.snapshot()["devices"][0]["plugins"],
+            serde_json::json!(["pending:sharex.test.plugin"])
+        );
+        // Plugin requests persist and repeated permission checks do not duplicate them.
+        assert_eq!(
+            c.get(&permission)
+                .header("cookie", &cookie)
+                .send()
+                .await
+                .unwrap()
+                .text()
+                .await
+                .unwrap(),
+            "waiting"
+        );
+        let saved: Saved =
+            serde_json::from_slice(&fs::read(state.data.join("state.json")).unwrap()).unwrap();
+        assert_eq!(saved.devices[0].plugins, vec!["pending:sharex.test.plugin"]);
+        state.inner.lock().unwrap().saved.devices[0].plugins = vec!["sharex.test.plugin".into()];
+        assert_eq!(
+            c.get(&url)
+                .header("cookie", &cookie)
+                .send()
+                .await
+                .unwrap()
+                .text()
+                .await
+                .unwrap(),
+            "<h1>Private plugin content</h1>"
+        );
+        state.inner.lock().unwrap().saved.devices[0].status = "denied".into();
+        let denied = c
+            .get(&url)
+            .header("cookie", &cookie)
+            .send()
+            .await
+            .unwrap()
+            .text()
+            .await
+            .unwrap();
+        assert!(!denied.contains("Private plugin content"));
+        assert_eq!(state.snapshot()["devices"][0]["status"], "denied");
+        server::stop(&state);
+    }
+}
+
+#[tokio::test]
 async fn plugin_websocket_sdk_presence_storage_and_key_revocation() {
     use futures_util::{SinkExt, StreamExt};
     use tokio_tungstenite::tungstenite::{client::IntoClientRequest, Message};
     let (_dir, state) = fixture();
-    let port = std::net::TcpListener::bind("127.0.0.1:0")
-        .unwrap()
-        .local_addr()
-        .unwrap()
-        .port();
+    let port = free_server_port();
     let browser = token();
     let key = token();
     {

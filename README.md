@@ -58,6 +58,8 @@ Drive detection uses Windows Shell's BitLocker volume property and excludes any 
 
 Plugins execute browser code with the access granted to that browser. Install only trusted plugins. The desktop plugin database implements the SDK's common JSONPath selection and update operations; unusual Jayway-specific JSONPath extensions may differ from Android. Legacy on-phone plugin development folders are replaced by desktop development connections.
 
+Opening a plugin link directly registers the browser and displays an access request in the desktop app. Approve the browser first, then approve the plugin. Requests appear in a popup and on the Devices page. The browser page waits for approval and opens the plugin automatically. Password-protected sessions can enter the sharing password on that page.
+
 ## Validation
 
 ```powershell

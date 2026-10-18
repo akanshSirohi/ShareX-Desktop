@@ -257,6 +257,9 @@ export default function App() {
     } | null>(null),
     [now, setNow] = useState(Date.now());
   const native = isTauri();
+  const [dismissedRequests, setDismissedRequests] = useState<Set<string>>(
+    new Set(),
+  );
   const connectionAddress = data.urls.includes(selectedAddress)
     ? selectedAddress
     : data.urls[0];
@@ -501,6 +504,35 @@ export default function App() {
     (d) =>
       d.status === "pending" || d.plugins.some((p) => p.startsWith("pending:")),
   );
+  const accessRequests = data.running
+    ? pending.flatMap((device) => {
+        if (device.status === "pending")
+          return [{ key: `${device.id}:browser`, device, package: "" }];
+        if (device.status !== "approved") return [];
+        return device.plugins
+          .filter((p) => p.startsWith("pending:"))
+          .map((p) => ({
+            key: `${device.id}:${p}`,
+            device,
+            package: p.slice(8),
+          }));
+      })
+    : [];
+  const requestKeys = JSON.stringify(
+    accessRequests.map((request) => request.key),
+  );
+  useEffect(() => {
+    const activeKeys = new Set<string>(JSON.parse(requestKeys));
+    setDismissedRequests((current) => {
+      const retained = [...current].filter((key) => activeKeys.has(key));
+      return retained.length === current.size ? current : new Set(retained);
+    });
+  }, [requestKeys]);
+  const approvalRequest = accessRequests.find(
+    (request) => !dismissedRequests.has(request.key),
+  );
+  const dismissRequest = (key: string) =>
+    setDismissedRequests((current) => new Set([...current, key]));
   const active = data.history.filter((t) => t.status === "active");
   const received =
     data.totals?.received ??
@@ -2333,6 +2365,69 @@ export default function App() {
           </div>
         </Modal>
       )}
+      {approvalRequest &&
+        !scope &&
+        !trust &&
+        !confirm &&
+        !connection &&
+        !preview &&
+        !destination &&
+        !nameDialog && (
+          <Modal
+            title={
+              approvalRequest.package
+                ? "Plugin access request"
+                : "Browser access request"
+            }
+            description={`${approvalRequest.device.name} · ${approvalRequest.device.ip}`}
+            error={error}
+            onClose={() => dismissRequest(approvalRequest.key)}
+          >
+            <div className="protection-note">
+              <ShieldCheck size={22} />
+              <p>
+                {approvalRequest.package
+                  ? `Allow ${data.plugins.find((p) => p.package === approvalRequest.package)?.name || approvalRequest.package} to run in this browser and use its approved sharing session?`
+                  : "Allow this browser to access your shared files for this session?"}
+              </p>
+            </div>
+            <div className="modal-footer">
+              <Button
+                onClick={() => {
+                  dismissRequest(approvalRequest.key);
+                  switchPage("devices");
+                }}
+              >
+                Review in Devices
+              </Button>
+              <Button
+                primary
+                disabled={busy}
+                onClick={() =>
+                  run(async () => {
+                    setData(
+                      await invoke("device_action", {
+                        id: approvalRequest.device.id,
+                        action: approvalRequest.package ? "plugin" : "approve",
+                        remember: false,
+                        package: approvalRequest.package || null,
+                      }),
+                    );
+                    dismissRequest(approvalRequest.key);
+                    setNotice(
+                      approvalRequest.package
+                        ? "Plugin access approved"
+                        : "Browser access approved",
+                    );
+                  })
+                }
+              >
+                <Check size={15} />
+                {approvalRequest.package ? "Approve plugin" : "Approve browser"}
+              </Button>
+            </div>
+          </Modal>
+        )}
       {trust && (
         <Modal
           error={error}
