@@ -26,11 +26,22 @@
   },
   "bundle": {
     "active": true,
-    "targets": ["nsis"],
-    "resources": ["portal/**/*"],
-    "icon": ["icons/icon.png", "icons/icon.ico"],
+    "targets": [
+      "nsis"
+    ],
+    "resources": [
+      "portal/**/*"
+    ],
+    "icon": [
+      "icons/icon.png",
+      "icons/icon.ico"
+    ],
     "shortDescription": "Local network file sharing",
     "copyright": "ShareX contributors; Android portal © Akansh Sirohi",
-    "windows": { "nsis": { "displayLanguageSelector": false } }
+    "windows": {
+      "nsis": {
+        "displayLanguageSelector": false
+      }
+    }
   }
 }

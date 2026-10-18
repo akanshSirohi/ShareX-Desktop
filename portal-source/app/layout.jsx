@@ -4,7 +4,8 @@ import "./themes.css";
 
 export const metadata = {
   title: "ShareX · Device workspace",
-  description: "Browse, download, and send files directly over your local network.",
+  description:
+    "Browse, download, and send files directly over your local network.",
 };
 
 const initializeAppearance = `try {
@@ -13,5 +14,12 @@ const initializeAppearance = `try {
 } catch (_) {}`;
 
 export default function RootLayout({ children }) {
-  return <html lang="en" suppressHydrationWarning><head><script dangerouslySetInnerHTML={{ __html: initializeAppearance }} /></head><body>{children}</body></html>;
+  return (
+    <html lang="en" suppressHydrationWarning>
+      <head>
+        <script dangerouslySetInnerHTML={{ __html: initializeAppearance }} />
+      </head>
+      <body>{children}</body>
+    </html>
+  );
 }

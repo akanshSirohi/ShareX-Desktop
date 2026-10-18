@@ -103,9 +103,17 @@
 }
 
 @layer base {
-  * { @apply border-border outline-ring/50; }
-  body { @apply bg-background text-foreground font-sans; }
-  button, a, input { -webkit-tap-highlight-color: transparent; }
+  * {
+    @apply border-border outline-ring/50;
+  }
+  body {
+    @apply bg-background text-foreground font-sans;
+  }
+  button,
+  a,
+  input {
+    -webkit-tap-highlight-color: transparent;
+  }
 }
 
 .document-preview [data-odv-theme] {
@@ -127,9 +135,22 @@
 /* Preserve Word page dimensions; Omni scales pages to fit the viewport.
    Shrinking the paper itself leaves fixed page margins and squeezes text. */
 .document-preview .odv-docx .odv-docx-content-wrapper > section,
-.document-preview .odv-docx .docx-wrapper > section { max-width: none; }
+.document-preview .odv-docx .docx-wrapper > section {
+  max-width: none;
+}
 
 @media (prefers-reduced-motion: no-preference) {
-  .workspace-enter { animation: workspace-in 180ms ease-out; }
-  @keyframes workspace-in { from { opacity: 0; transform: translateY(4px); } to { opacity: 1; transform: translateY(0); } }
+  .workspace-enter {
+    animation: workspace-in 180ms ease-out;
+  }
+  @keyframes workspace-in {
+    from {
+      opacity: 0;
+      transform: translateY(4px);
+    }
+    to {
+      opacity: 1;
+      transform: translateY(0);
+    }
+  }
 }
