@@ -11,3 +11,21 @@ playwright-report/
 output/
 src-tauri/portal-staging-*/
 src-tauri/portal-backup-*/
+
+# Local state, credentials, generated schemas, and tooling output
+/state/
+/src-tauri/gen/
+/design-system/
+/ShareX-Desktop-Showcase/
+.env
+.env.*
+!.env.example
+*.pem
+*.key
+*.p12
+*.pfx
+.idea/
+.vscode/
+coverage/
+*.tsbuildinfo
+Thumbs.db

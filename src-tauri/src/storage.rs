@@ -1,11 +1,13 @@
 use crate::model::*;
 use serde_json::{json, Value};
+#[cfg(windows)]
+use std::process::Command;
 use std::{
     fs,
     path::{Component, Path, PathBuf},
-    process::Command,
 };
 
+#[cfg(windows)]
 pub fn hidden_command(program: &str) -> Command {
     let mut c = Command::new(program);
     #[cfg(windows)]

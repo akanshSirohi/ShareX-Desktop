@@ -14,9 +14,65 @@ fn fixture() -> (tempfile::TempDir, AppState) {
         let mut r = state.inner.lock().unwrap();
         r.saved.settings.root_path = root.to_string_lossy().into();
         r.saved.settings.restrict_modify = false;
+        // Server tests own only this temporary root, independent of host encryption.
+        r.drives = vec![Drive {
+            path: root.to_string_lossy().into(),
+            name: "Test storage".into(),
+            total: 100,
+            free: 50,
+            eligible: true,
+            protection: "Not encrypted".into(),
+        }];
         r.roots = vec![("Storage".into(), root)];
     }
     (dir, state)
+}
+
+async fn start_fixture_server(state: &AppState) -> Result<(), String> {
+    let drives = state.inner.lock().unwrap().drives.clone();
+    server::start_with_drive_scanner(state.clone(), move || Ok(drives.clone())).await
+}
+
+#[tokio::test]
+async fn server_start_refuses_protected_and_unknown_drives() {
+    for protection in ["BitLocker protected", "Unknown"] {
+        let (_dir, state) = fixture();
+        {
+            let mut r = state.inner.lock().unwrap();
+            r.drives[0].eligible = false;
+            r.drives[0].protection = protection.into();
+        }
+        let error = start_fixture_server(&state).await.unwrap_err();
+        assert!(error.contains(protection), "{error}");
+        assert!(!state.inner.lock().unwrap().running);
+    }
+}
+
+#[tokio::test]
+async fn server_stops_when_drive_protection_changes() {
+    let (_dir, state) = fixture();
+    state.inner.lock().unwrap().saved.settings.port = free_server_port();
+    let drives = std::sync::Arc::new(std::sync::Mutex::new(
+        state.inner.lock().unwrap().drives.clone(),
+    ));
+    let source = drives.clone();
+    server::start_with_drive_scanner(state.clone(), move || Ok(source.lock().unwrap().clone()))
+        .await
+        .unwrap();
+    assert!(state.inner.lock().unwrap().running);
+    {
+        let mut current = drives.lock().unwrap();
+        current[0].eligible = false;
+        current[0].protection = "BitLocker protected".into();
+    }
+    let stopped = tokio::time::timeout(std::time::Duration::from_secs(15), async {
+        while state.inner.lock().unwrap().running {
+            tokio::time::sleep(std::time::Duration::from_millis(20)).await;
+        }
+    })
+    .await;
+    server::stop(&state);
+    stopped.expect("The drive watcher must stop sharing when protection changes");
 }
 fn free_server_port() -> u16 {
     // Both the HTTP port and the adjacent plugin socket port must be available.
@@ -266,7 +322,7 @@ async fn real_server_auth_stream_upload_range_and_restrictions() {
     fs::write(root.join("hello.txt"), "hello world").unwrap();
     let port = free_server_port();
     state.inner.lock().unwrap().saved.settings.port = port;
-    server::start(state.clone()).await.unwrap();
+    start_fixture_server(&state).await.unwrap();
     let base = format!("http://127.0.0.1:{port}");
     let c = reqwest::Client::new();
     let auth = c
@@ -418,7 +474,7 @@ async fn https_password_and_revocation() {
         r.saved.settings.password_hash =
             server::password_hash("test-password", &r.saved.settings.password_salt);
     }
-    server::start(state.clone()).await.unwrap();
+    start_fixture_server(&state).await.unwrap();
     let c = reqwest::Client::builder()
         .danger_accept_invalid_certs(true)
         .build()
@@ -508,7 +564,7 @@ async fn direct_plugin_link_registers_browser_and_waits_for_both_approvals() {
                 enabled: true,
             });
         }
-        server::start(state.clone()).await.unwrap();
+        start_fixture_server(&state).await.unwrap();
         let base = format!("http://127.0.0.1:{port}");
         let url = format!("{base}/SharexApp/sharex-test-plugin/");
         let c = reqwest::Client::new();
@@ -667,7 +723,7 @@ async fn plugin_websocket_sdk_presence_storage_and_key_revocation() {
             plugins: vec!["sharex.test.plugin".into()],
         });
     }
-    server::start(state.clone()).await.unwrap();
+    start_fixture_server(&state).await.unwrap();
     let mut request = format!("ws://127.0.0.1:{}/", port + 1)
         .into_client_request()
         .unwrap();
